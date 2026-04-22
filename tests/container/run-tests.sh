@@ -2,7 +2,7 @@
 # Container test runner for e2e agent validation
 # Tests full fork + setup + script validation workflow
 
-set -e  # Exit on first error
+set -e # Exit on first error
 
 # Colors for output
 RED='\033[0;31m'
@@ -14,31 +14,31 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 
 log_test() {
-    echo -e "${YELLOW}[TEST]${NC} $1"
+  echo -e "${YELLOW}[TEST]${NC} $1"
 }
 
 log_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    TESTS_PASSED=$((TESTS_PASSED + 1))
+  echo -e "${GREEN}[PASS]${NC} $1"
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 log_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    TESTS_FAILED=$((TESTS_FAILED + 1))
+  echo -e "${RED}[FAIL]${NC} $1"
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 # Configure git identity for fork.sh commits using env vars
 # Using env vars (not git config --global) avoids clobbering any existing git identity,
 # and works reliably inside containers, LXC environments, and local developer machines.
-export GIT_AUTHOR_NAME="Test User"
-export GIT_AUTHOR_EMAIL="test@example.com"
-export GIT_COMMITTER_NAME="Test User"
-export GIT_COMMITTER_EMAIL="test@example.com"
+export GIT_AUTHOR_NAME="skogix"
+export GIT_AUTHOR_EMAIL="emil@skogsund.se"
+export GIT_COMMITTER_NAME="skogix"
+export GIT_COMMITTER_EMAIL="emil@skogsund.se"
 
 # Set default branch name for git init (safe: not personal identity, only affects new repos)
 git config --global init.defaultBranch master
 
-cd /home/testuser/gptme-agent-template
+cd /home/skogix/skogai/agent-template
 
 echo "========================================"
 echo "E2E Agent Container Tests"
@@ -47,27 +47,27 @@ echo ""
 
 # Test 1: Fork creates valid agent structure
 log_test "Fork creates valid agent structure"
-if ./scripts/fork.sh /home/testuser/test-agent testagent; then
-    log_pass "Fork completed successfully"
+if ./scripts/fork.sh /home/skogix/test-agent testagent; then
+  log_pass "Fork completed successfully"
 else
-    log_fail "Fork failed"
-    exit 1
+  log_fail "Fork failed"
+  exit 1
 fi
 
-cd /home/testuser/test-agent
+cd /home/skogix/test-agent
 
 # Test 2: Required directories exist
 log_test "Required directories exist"
 required_dirs=("tasks" "journal" "knowledge" "lessons" "people" "scripts")
 all_dirs_exist=true
 for dir in "${required_dirs[@]}"; do
-    if [[ ! -d "$dir" ]]; then
-        log_fail "Missing directory: $dir"
-        all_dirs_exist=false
-    fi
+  if [[ ! -d "$dir" ]]; then
+    log_fail "Missing directory: $dir"
+    all_dirs_exist=false
+  fi
 done
 if $all_dirs_exist; then
-    log_pass "All required directories present"
+  log_pass "All required directories present"
 fi
 
 # Test 3: Required files exist
@@ -75,21 +75,21 @@ log_test "Required files exist"
 required_files=("gptme.toml" "README.md" "ABOUT.md")
 all_files_exist=true
 for file in "${required_files[@]}"; do
-    if [[ ! -f "$file" ]]; then
-        log_fail "Missing file: $file"
-        all_files_exist=false
-    fi
+  if [[ ! -f "$file" ]]; then
+    log_fail "Missing file: $file"
+    all_files_exist=false
+  fi
 done
 if $all_files_exist; then
-    log_pass "All required files present"
+  log_pass "All required files present"
 fi
 
 # Test 4: Agent name substitution worked
 log_test "Agent name substitution in gptme.toml"
 if grep -q 'name = "testagent"' gptme.toml; then
-    log_pass "Agent name correctly substituted"
+  log_pass "Agent name correctly substituted"
 else
-    log_fail "Agent name not found in gptme.toml"
+  log_fail "Agent name not found in gptme.toml"
 fi
 
 # Test 5: No "gptme-agent" CLI tool references leaked into forked content
@@ -99,85 +99,85 @@ log_test "No gptme-agent CLI tool references in forked workspace"
 # Check non-submodule, non-git files for "gptme-agent" (should be zero)
 leaked_refs=$(grep -r "gptme-agent" --include="*.md" --include="*.toml" . 2>/dev/null | grep -v ".git/" | grep -v "gptme-contrib/" | grep -v "knowledge/agent-forking.md" | grep -v "knowledge/forking-workspace.md" || true)
 if [[ -z "$leaked_refs" ]]; then
-    log_pass "No gptme-agent references leaked into forked content"
+  log_pass "No gptme-agent references leaked into forked content"
 else
-    log_fail "Found leaked gptme-agent references in forked workspace:"
-    echo "$leaked_refs"
+  log_fail "Found leaked gptme-agent references in forked workspace:"
+  echo "$leaked_refs"
 fi
 
 # Test 6: Context script generates output
 # Per Erik's request: actually test context generation, handle missing tools gracefully
 log_test "Context script execution"
 if [[ -f scripts/context.sh ]] && [[ -x scripts/context.sh ]]; then
-    # Run context.sh and capture output
-    CONTEXT_OUTPUT=$(./scripts/context.sh 2>&1) || true
-    CONTEXT_LINES=$(echo "$CONTEXT_OUTPUT" | wc -l)
+  # Run context.sh and capture output
+  CONTEXT_OUTPUT=$(./scripts/context.sh 2>&1) || true
+  CONTEXT_LINES=$(echo "$CONTEXT_OUTPUT" | wc -l)
 
-    # Check if meaningful output was generated (should have headers and content)
-    if [[ $CONTEXT_LINES -gt 10 ]] && echo "$CONTEXT_OUTPUT" | grep -q "# Context Summary"; then
-        log_pass "Context script generates output ($CONTEXT_LINES lines)"
-        # Show a sample of the output for debugging
-        echo -e "${YELLOW}[INFO]${NC} Context output preview:"
-        echo "$CONTEXT_OUTPUT" | head -20
-        echo "..."
-    else
-        log_fail "Context script did not generate expected output (got $CONTEXT_LINES lines)"
-        echo "Output was:"
-        echo "$CONTEXT_OUTPUT"
-    fi
+  # Check if meaningful output was generated (should have headers and content)
+  if [[ $CONTEXT_LINES -gt 10 ]] && echo "$CONTEXT_OUTPUT" | grep -q "# Context Summary"; then
+    log_pass "Context script generates output ($CONTEXT_LINES lines)"
+    # Show a sample of the output for debugging
+    echo -e "${YELLOW}[INFO]${NC} Context output preview:"
+    echo "$CONTEXT_OUTPUT" | head -20
+    echo "..."
+  else
+    log_fail "Context script did not generate expected output (got $CONTEXT_LINES lines)"
+    echo "Output was:"
+    echo "$CONTEXT_OUTPUT"
+  fi
 else
-    log_fail "Context script missing or not executable"
+  log_fail "Context script missing or not executable"
 fi
 
 # Test 6: Systemd service files are valid (syntax check)
 log_test "Systemd service file validation"
 if [[ -d dotfiles/.config/systemd/user ]]; then
-    service_files=$(find dotfiles/.config/systemd/user -name "*.service*" -o -name "*.timer*" 2>/dev/null)
-    if [[ -n "$service_files" ]]; then
-        all_valid=true
-        while IFS= read -r service_file; do
-            # Basic syntax check - ensure required sections exist
-            if grep -qE '^\[Unit\]' "$service_file" && grep -qE '^\[Service\]|^\[Timer\]' "$service_file"; then
-                :  # Valid
-            else
-                log_fail "Invalid service file format: $service_file"
-                all_valid=false
-            fi
-        done <<< "$service_files"
-        if $all_valid; then
-            log_pass "All service files have valid format"
-        fi
-    else
-        log_pass "No service files to validate (template uses examples)"
+  service_files=$(find dotfiles/.config/systemd/user -name "*.service*" -o -name "*.timer*" 2>/dev/null)
+  if [[ -n "$service_files" ]]; then
+    all_valid=true
+    while IFS= read -r service_file; do
+      # Basic syntax check - ensure required sections exist
+      if grep -qE '^\[Unit\]' "$service_file" && grep -qE '^\[Service\]|^\[Timer\]' "$service_file"; then
+        : # Valid
+      else
+        log_fail "Invalid service file format: $service_file"
+        all_valid=false
+      fi
+    done <<<"$service_files"
+    if $all_valid; then
+      log_pass "All service files have valid format"
     fi
+  else
+    log_pass "No service files to validate (template uses examples)"
+  fi
 else
-    log_pass "No dotfiles/systemd directory (optional)"
+  log_pass "No dotfiles/systemd directory (optional)"
 fi
 
 # Test 7: Git repository is properly initialized
 log_test "Git repository initialization"
-if [[ -d .git ]] && git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    log_pass "Git repository properly initialized"
+if [[ -d .git ]] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  log_pass "Git repository properly initialized"
 else
-    log_fail "Git repository not initialized"
+  log_fail "Git repository not initialized"
 fi
 
 # Test 8: Pre-commit config exists
 log_test "Pre-commit configuration"
 if [[ -f .pre-commit-config.yaml ]]; then
-    log_pass "Pre-commit config present"
+  log_pass "Pre-commit config present"
 else
-    log_fail "Pre-commit config missing"
+  log_fail "Pre-commit config missing"
 fi
 
 # Test 9: Submodule (gptme-contrib) initialized
 log_test "Submodule initialization"
 if [[ -d gptme-contrib/.git ]] || [[ -f gptme-contrib/.git ]]; then
-    log_pass "Submodule initialized"
+  log_pass "Submodule initialized"
 elif [[ -d gptme-contrib ]] && [[ -n "$(ls -A gptme-contrib 2>/dev/null)" ]]; then
-    log_pass "Submodule directory populated"
+  log_pass "Submodule directory populated"
 else
-    log_fail "Submodule not properly initialized"
+  log_fail "Submodule not properly initialized"
 fi
 
 # Test 10: Scripts have execute permission
@@ -186,29 +186,29 @@ log_test "Script execute permissions"
 scripts_with_exec=true
 # shellcheck disable=SC2043  # Single-item loop for easy future expansion
 for script in scripts/context.sh; do
-    if [[ -f "$script" ]] && [[ ! -x "$script" ]]; then
-        log_fail "Missing execute permission: $script"
-        scripts_with_exec=false
-    fi
+  if [[ -f "$script" ]] && [[ ! -x "$script" ]]; then
+    log_fail "Missing execute permission: $script"
+    scripts_with_exec=false
+  fi
 done
 if $scripts_with_exec; then
-    log_pass "Scripts have execute permissions"
+  log_pass "Scripts have execute permissions"
 fi
 
 # Test 11: No verbatim copies of gptme-contrib scripts (should be symlinks)
 log_test "No drift: shared scripts are symlinks, not copies"
-TEMPLATE_DIR=/home/testuser/gptme-agent-template
+TEMPLATE_DIR=/home/skogix/skogai/agent-template
 if [[ -f "$TEMPLATE_DIR/scripts/check-symlinks.py" ]] && [[ -d gptme-contrib ]] && [[ -n "$(ls -A gptme-contrib 2>/dev/null)" ]]; then
-    DRIFT_OUTPUT=$(python3 "$TEMPLATE_DIR/scripts/check-symlinks.py" . 2>&1)
-    DRIFT_EXIT=$?
-    if [[ $DRIFT_EXIT -eq 0 ]]; then
-        log_pass "No drift: all shared scripts are properly symlinked"
-    else
-        log_fail "Drift detected — found verbatim copies that should be symlinks:"
-        echo "$DRIFT_OUTPUT"
-    fi
+  DRIFT_OUTPUT=$(python3 "$TEMPLATE_DIR/scripts/check-symlinks.py" . 2>&1)
+  DRIFT_EXIT=$?
+  if [[ $DRIFT_EXIT -eq 0 ]]; then
+    log_pass "No drift: all shared scripts are properly symlinked"
+  else
+    log_fail "Drift detected — found verbatim copies that should be symlinks:"
+    echo "$DRIFT_OUTPUT"
+  fi
 else
-    log_pass "Skipping drift check (check-symlinks.py or gptme-contrib not available)"
+  log_pass "Skipping drift check (check-symlinks.py or gptme-contrib not available)"
 fi
 
 echo ""
@@ -220,9 +220,9 @@ echo -e "Failed: ${RED}$TESTS_FAILED${NC}"
 echo ""
 
 if [[ $TESTS_FAILED -gt 0 ]]; then
-    echo -e "${RED}TESTS FAILED${NC}"
-    exit 1
+  echo -e "${RED}TESTS FAILED${NC}"
+  exit 1
 else
-    echo -e "${GREEN}ALL TESTS PASSED${NC}"
-    exit 0
+  echo -e "${GREEN}ALL TESTS PASSED${NC}"
+  exit 0
 fi
